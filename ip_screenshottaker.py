@@ -8,33 +8,51 @@ for env in ['prod','dev']:
     import json
     from PIL import Image, ImageDraw, ImageFont
     import cv2
+    import PIL
+    from io import BytesIO
 
     session = boto3.Session(profile_name=env)
     ec2 = session.resource('ec2')
 
     def take_screenshot(instance, ip_address, port):
         options = webdriver.ChromeOptions()
+        options.add_argument('--disable-web-security')
+        options.add_argument('--allow-running-insecure-content')
         options.add_argument('headless')
-        options.add_argument('--ignore-certificate-errors')
-        options.add_argument('--ignore-certificate-errors-spki-list')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        options.add_argument("--window-size=1920x1080")
+        options.add_argument('--ignore-certificate-errors')
         caps = DesiredCapabilities.CHROME
         caps['goog:loggingPrefs'] = {'performance': 'ALL'}
         print("error10")
         driver = webdriver.Chrome(options=options, desired_capabilities=caps)
         print("error11")
-        driver.set_page_load_timeout(5)
+        
+        print(f'http://{ip_address}:{port}')
         try:
+
+            #driver.set_page_load_timeout(20)
             if port == 443:
                 driver.get(f'https://{ip_address}:{port}')
             else:
                 driver.get(f'http://{ip_address}:{port}')
-            print(f'http://{ip_address}:{port}')
-            time.sleep(1)
-            driver.save_screenshot(f'screenshots/{env}_{ip_address}_{port}.png')
             
+            #driver.set_page_load_timeout(20)
+            time.sleep(5)
+            page_height = driver.execute_script("return Math.max( document.body.scrollHeight, document.body.offsetHeight, document.documentElement.clientHeight, document.documentElement.scrollHeight, document.documentElement.offsetHeight )")
+            options.add_argument(f"--window-size=1920x{page_height}")
+
+# Print the height of the webpage
+            if port == 443:
+                driver.get(f'https://{ip_address}:{port}')
+            else:
+                driver.get(f'http://{ip_address}:{port}')
+
+            time.sleep(5)
+            print("The height of the webpage is:", page_height)
+
+            driver.save_screenshot(f'screenshots/{env}_{ip_address}_{port}.png')
+            driver.quit()
 
 
             # Load the screenshot image
@@ -66,7 +84,7 @@ for env in ['prod','dev']:
             # Save the watermarked image
             cv2.imwrite(f'screenshots/{env}_{ip_address}_{port}.png', image)
 
-            driver.quit()
+            
 
         except Exception as e:
         # handle other exceptions
